@@ -72,7 +72,7 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
     case rs::slam::tracking_accuracy::high:
         trackingAccuracy= "high";
          break;
-    default:
+   default:
         trackingAccuracy= "unknown";
     }
 
@@ -238,8 +238,9 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
   // == FROM HERE ==
 
     // Publish occupancy map
-    int wmap = 512;
-    int hmap = 512;
+    int wmap = 512; 
+    int hmap = 512; 
+
     if (!occ_map)
     {
       occ_map = slam->create_occupancy_map(wmap * hmap);
@@ -247,7 +248,9 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
     }
     if (ipNavMap == NULL)
     {
+      //christiaan: function to copy an image second argument = bits per pixel, third argument = channels
       ipNavMap = cvCreateImage(cvSize(wmap, hmap), 8, 1);
+      //christiaan: function to fill the array with the value in the second argument	
       cvSet(ipNavMap, 10, NULL);
     }
     int status = slam->get_occupancy_map_update(occ_map);
@@ -271,6 +274,8 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
         }
       }
     }
+    //cv::Mat img(ipNavMap);
+    cvSaveImage("/tmp/foo.png", ipNavMap);
     std::vector<signed char> vMap(ipNavMap->imageData, ipNavMap->imageData + wmap * hmap);
     map_msg.data = vMap;
     map_msg.info.resolution = map_resolution;
@@ -318,7 +323,21 @@ resetClient = nh_.advertiseService("/realsense/slam/reset",&SPNodelet::reset,thi
    */
 SPNodelet::~SPNodelet()
 {
-  
+  if(slam_->save_relocalization_map("/tmp/euclid_reloc_map"))
+  {
+    std::cout << "save localization map successfull" << std::endl;
+  }
+
+  if(slam_->save_occupancy_map("/tmp/euclid_occ_map"))
+  {
+    std::cout << "save occupancy map successfull" << std::endl;
+  }
+
+  if(slam_->save_occupancy_map_as_ppm("/tmp/euclid_occ_map.ppm", true))
+  {
+    std::cout << "save color occupancy map successfull" << std::endl;
+  }
+
 }
 
 /*
@@ -568,14 +587,41 @@ void SPNodelet::initializeSlam()
 {
 
   slam_ = std::unique_ptr<rs::slam::slam>(new rs::slam::slam());
+  
+  //christiaan: tried to set the program to force relocalizations
+  if(slam_->force_relocalization_pose(true))
+  {
+    ROS_INFO("forced relocalization - enabled");
+  }
+  else
+  {
+    ROS_INFO("forced relocalization - disabled");
+  }
+  //end added code
+
   if(!enable_relocalization_) {
     slam_->stop_relocalization_mapping();
     ROS_INFO("Relocalization - disabled");
   } else {
     slam_->start_relocalization_mapping();
     ROS_INFO("Relocalization - enabled");
-
   }
+
+  //christiaan: load relocalization map if there is a map
+  
+  if(slam_->load_relocalization_map("/tmp/euclid_reloc_map"))
+    std::cout << "relocation map is loaded" << std::endl;
+  else
+    std::cout << "relocation map is not able to be loaded" << std::endl; 
+
+  if(slam_->load_occupancy_map("/tmp/euclid_reloc_map"))
+    std::cout << "occupancy  map is loaded" << std::endl;
+  else
+    std::cout << "occupancy map is not able to be loaded" << std::endl;
+
+
+
+
   slam_->set_occupancy_map_resolution(map_resolution);  // now a variable, but set in .hpp file
   slam_->register_event_handler(scenePerceptionEventHandler);
   slam_->register_tracking_event_handler(&trackingEventHandler);
@@ -599,7 +645,7 @@ void SPNodelet::initializeSlam()
 
   std::cout << "default height of interest min: " << minHeight << " max: " << maxHeight << std::endl;
 
-  slam_->set_occupancy_map_height_of_interest(-0.1,0.1);
+  slam_->set_occupancy_map_height_of_interest(-0.25,1);
 
   slam_->get_occupancy_map_height_of_interest(minHeight,maxHeight);
 
@@ -614,7 +660,7 @@ void SPNodelet::initializeSlam()
 
   std::cout << "default depth of interest min: " << minDepth << " max: " << maxDepth << std::endl;
 
-  slam_->set_occupancy_map_depth_of_interest(0.2,1.5); //christiaan: 0.2 m is below the minimum range of 0.55m or the ZR300 camera
+  slam_->set_occupancy_map_depth_of_interest(0.3,2.0); //christiaan: 0.3 m is below the minimum range of 0.55m or the ZR300 camera
 
   slam_->get_occupancy_map_depth_of_interest(minDepth,maxDepth);
 
@@ -624,9 +670,12 @@ void SPNodelet::initializeSlam()
 
   std::cout << "default map resolution: " << slam_->get_occupancy_map_resolution() << std::endl;
 
- // slam_->set_occupancy_map_resolution(0.02);
+  slam_->set_occupancy_map_resolution(0.02);
 
-//  std::cout << "custom map resolution: " << slam_->get_occupancy_map_resolution() << std::endl; 
+  std::cout << "custom map resolution: " << slam_->get_occupancy_map_resolution() << std::endl; 
+
+  std::cout << "Auto building of occupancy map is: " << slam_->is_auto_occupancy_map_building_enabled() << std::endl;
+
 }
 /*
    * Callback for Camera Info Topics.
