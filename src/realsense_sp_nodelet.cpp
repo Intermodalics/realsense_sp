@@ -46,6 +46,8 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
 {
   auto slam = dynamic_cast<rs::slam::slam *>(sender); //Docs: https://software.intel.com/sites/products/realsense/slam/classrs_1_1slam_1_1slam.html#details
 
+  //seconds between 2 odomotry messages from this callback
+  double secPerMessage = 1.0;
   //if (!occ_map)
   //{
   //  // This will only happen on the first execution of this callback.
@@ -102,10 +104,13 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
     msg.twist.twist.angular.z = 0;
   } else {
     ros::Duration diff = msg.header.stamp - previousTimestamp;
-    double seconds =  diff.toSec();
+    double seconds = diff.toSec();
+
+    secPerMessage = seconds;  //added by christiaan
+
     tf::Quaternion diffAngle = tf::Quaternion(previousPose.orientation.x,previousPose.orientation.y,previousPose.orientation.z,previousPose.orientation.w) * tf::Quaternion(msg.pose.pose.orientation.x,msg.pose.pose.orientation.y,msg.pose.pose.orientation.z,msg.pose.pose.orientation.w).inverse();
 
-    // std::cout << "frequency of sending msg on /odom is " << 1/seconds << " Hz" << std::endl;     
+    // std::cout << "frequency of sending msg on /odom is " << 1/secPerMessage << " Hz" << std::endl;
 
     msg.twist.twist.linear.x = (previousPose.position.x-msg.pose.pose.position.x)/seconds;
     msg.twist.twist.linear.y = (previousPose.position.y-msg.pose.pose.position.y)/seconds;
@@ -275,7 +280,7 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
       }
     }
     //cv::Mat img(ipNavMap);
-    cvSaveImage("/tmp/foo.png", ipNavMap);
+    cvSaveImage("~/euclidMaps/foo.png", ipNavMap);
     std::vector<signed char> vMap(ipNavMap->imageData, ipNavMap->imageData + wmap * hmap);
     map_msg.data = vMap;
     map_msg.info.resolution = map_resolution;
@@ -307,9 +312,12 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
 
     occPublisher.publish(map_msg);  // modified from original
 
+    //christiaan: outputting the coordinates of the camera link and the frequency with which this callback is called
+    std::cout << std::fixed << std::setprecision(2) << "Translation:(X=" << pose.m_data[3] << ", Y=" << pose.m_data[7] << ", Z=" << pose.m_data[11] << ")    Accuracy:" << trackingAccuracy << 1/secPerMessage << " Hz" <<  "\r" << std::flush;
+
   // == TO HERE ==
 
-    loopRate.sleep();
+    //loopRate.sleep();
 
 }
 SPNodelet::SPNodelet()
@@ -323,17 +331,17 @@ resetClient = nh_.advertiseService("/realsense/slam/reset",&SPNodelet::reset,thi
    */
 SPNodelet::~SPNodelet()
 {
-  if(slam_->save_relocalization_map("/tmp/euclid_reloc_map"))
+  if(slam_->save_relocalization_map("~/euclidMaps/euclid_reloc_map"))
   {
     std::cout << "save localization map successfull" << std::endl;
   }
 
-  if(slam_->save_occupancy_map("/tmp/euclid_occ_map"))
-  {
+  if(slam_->save_occupancy_map("~/euclidMaps/euclid_occ_map"))
+  {  
     std::cout << "save occupancy map successfull" << std::endl;
   }
 
-  if(slam_->save_occupancy_map_as_ppm("/tmp/euclid_occ_map.ppm", true))
+  if(slam_->save_occupancy_map_as_ppm("~/euclidMaps/euclid_occ_map.ppm", true))
   {
     std::cout << "save color occupancy map successfull" << std::endl;
   }
@@ -609,12 +617,12 @@ void SPNodelet::initializeSlam()
 
   //christiaan: load relocalization map if there is a map
   
-  if(slam_->load_relocalization_map("/tmp/euclid_reloc_map"))
+  if(slam_->load_relocalization_map("~/euclidMaps/euclid_reloc_map"))
     std::cout << "relocation map is loaded" << std::endl;
   else
     std::cout << "relocation map is not able to be loaded" << std::endl; 
 
-  if(slam_->load_occupancy_map("/tmp/euclid_reloc_map"))
+  if(slam_->load_occupancy_map("~/euclidMaps/euclid_reloc_map"))
     std::cout << "occupancy  map is loaded" << std::endl;
   else
     std::cout << "occupancy map is not able to be loaded" << std::endl;
