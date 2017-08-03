@@ -243,8 +243,8 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
   // == FROM HERE ==
 
     // Publish occupancy map
-    int wmap = 512; 
-    int hmap = 512; 
+    int wmap = 1024;
+    int hmap = 1024;
 
     if (!occ_map)
     {
@@ -280,7 +280,7 @@ void slam_event_handler::module_output_ready(rs::core::video_module_interface *s
       }
     }
     //cv::Mat img(ipNavMap);
-    cvSaveImage("~/euclidMaps/foo.png", ipNavMap);
+    cvSaveImage("/home/euclid/euclidMaps/foo.png", ipNavMap);
     std::vector<signed char> vMap(ipNavMap->imageData, ipNavMap->imageData + wmap * hmap);
     map_msg.data = vMap;
     map_msg.info.resolution = map_resolution;
@@ -331,19 +331,31 @@ resetClient = nh_.advertiseService("/realsense/slam/reset",&SPNodelet::reset,thi
    */
 SPNodelet::~SPNodelet()
 {
-  if(slam_->save_relocalization_map("~/euclidMaps/euclid_reloc_map"))
+  if(slam_->save_relocalization_map("/home/euclid/euclidMaps/euclid_reloc_map"))
   {
     std::cout << "save localization map successfull" << std::endl;
   }
+  else
+  {
+      std::cout << "save localization map NOT successfull" << std::endl;
+  }
 
-  if(slam_->save_occupancy_map("~/euclidMaps/euclid_occ_map"))
+  if(slam_->save_occupancy_map("/home/euclid/euclidMaps/euclid_occ_map"))
   {  
     std::cout << "save occupancy map successfull" << std::endl;
   }
+  else
+  {
+      std::cout << "save occupancy map NOT successfull" << std::endl;
+  }
 
-  if(slam_->save_occupancy_map_as_ppm("~/euclidMaps/euclid_occ_map.ppm", true))
+  if(slam_->save_occupancy_map_as_ppm("/home/euclid/euclidMaps/euclid_occ_map.ppm", true))
   {
     std::cout << "save color occupancy map successfull" << std::endl;
+  }
+  else
+  {
+      std::cout << "save color occupancymap NOT successfull" << std::endl;
   }
 
 }
@@ -617,12 +629,12 @@ void SPNodelet::initializeSlam()
 
   //christiaan: load relocalization map if there is a map
   
-  if(slam_->load_relocalization_map("~/euclidMaps/euclid_reloc_map"))
+  if(slam_->load_relocalization_map("/home/euclid/euclidMaps/euclid_reloc_map"))
     std::cout << "relocation map is loaded" << std::endl;
   else
     std::cout << "relocation map is not able to be loaded" << std::endl; 
 
-  if(slam_->load_occupancy_map("~/euclidMaps/euclid_reloc_map"))
+  if(slam_->load_occupancy_map("/home/euclid/euclidMaps/euclid_reloc_map"))
     std::cout << "occupancy  map is loaded" << std::endl;
   else
     std::cout << "occupancy map is not able to be loaded" << std::endl;
